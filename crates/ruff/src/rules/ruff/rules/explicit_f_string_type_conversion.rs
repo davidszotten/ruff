@@ -55,12 +55,12 @@ impl AlwaysAutofixableViolation for ExplicitFStringTypeConversion {
 pub(crate) fn explicit_f_string_type_conversion(
     checker: &mut Checker,
     expr: &Expr,
-    values: &[Expr],
+    values: &[ast::FStringPart],
 ) {
     for (index, formatted_value) in values
         .iter()
         .filter_map(|expr| {
-            if let Expr::FormattedValue(expr) = &expr {
+            if let ast::FStringPart::FormattedValue(expr) = &expr {
                 Some(expr)
             } else {
                 None
@@ -68,8 +68,10 @@ pub(crate) fn explicit_f_string_type_conversion(
         })
         .enumerate()
     {
-        let ast::ExprFormattedValue {
-            value, conversion, ..
+        let ast::FormattedValue {
+            expression,
+            conversion,
+            ..
         } = formatted_value;
 
         // Skip if there's already a conversion flag.
@@ -86,7 +88,7 @@ pub(crate) fn explicit_f_string_type_conversion(
                     range: _,
                 },
             ..
-        }) = value.as_ref()
+        }) = expression.as_ref()
         else {
             continue;
         };
@@ -121,7 +123,7 @@ pub(crate) fn explicit_f_string_type_conversion(
             continue;
         }
 
-        let mut diagnostic = Diagnostic::new(ExplicitFStringTypeConversion, value.range());
+        let mut diagnostic = Diagnostic::new(ExplicitFStringTypeConversion, expression.range());
         if checker.patch(diagnostic.kind.rule()) {
             diagnostic.try_set_fix(|| {
                 convert_call_to_conversion_flag(expr, index, checker.locator(), checker.stylist())

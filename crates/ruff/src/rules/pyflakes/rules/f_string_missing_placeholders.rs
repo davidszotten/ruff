@@ -1,4 +1,4 @@
-use ruff_python_ast::{Expr, PySourceType, Ranged};
+use ruff_python_ast::{Expr, FStringPart, PySourceType, Ranged};
 use ruff_python_parser::{lexer, AsMode, StringKind, Tok};
 use ruff_text_size::{TextRange, TextSize};
 
@@ -80,10 +80,14 @@ fn find_useless_f_strings<'a>(
 }
 
 /// F541
-pub(crate) fn f_string_missing_placeholders(expr: &Expr, values: &[Expr], checker: &mut Checker) {
+pub(crate) fn f_string_missing_placeholders(
+    expr: &Expr,
+    values: &[FStringPart],
+    checker: &mut Checker,
+) {
     if !values
         .iter()
-        .any(|value| matches!(value, Expr::FormattedValue(_)))
+        .any(|value| matches!(value, FStringPart::FormattedValue(_)))
     {
         for (prefix_range, tok_range) in
             find_useless_f_strings(expr, checker.locator(), checker.source_type)
