@@ -14,7 +14,6 @@ use crate::comments::{leading_comments, trailing_comments};
 use crate::expression::parentheses::{
     in_parentheses_only_group, in_parentheses_only_soft_line_break_or_space,
 };
-use crate::expression::Expr;
 use crate::prelude::*;
 use crate::QuoteStyle;
 
@@ -33,13 +32,13 @@ impl<'a> AnyString<'a> {
     fn quoting(&self, locator: &Locator) -> Quoting {
         match self {
             Self::Constant(_) => Quoting::CanChange,
-            Self::FString(f_string) => {
-                if f_string.values.iter().any(|value| match value {
-                    Expr::FormattedValue(ast::ExprFormattedValue { range, .. }) => {
+            Self::FString(f_str) => {
+                if f_str.parts.iter().any(|value| match value {
+                    ast::FStringPart::FormattedValue(ast::FormattedValue { range, .. }) => {
                         let string_content = locator.slice(*range);
                         string_content.contains(['"', '\''])
                     }
-                    _ => false,
+                    ast::FStringPart::String(_) => false,
                 }) {
                     Quoting::Preserve
                 } else {
