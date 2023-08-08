@@ -532,8 +532,6 @@ pub enum Expr {
     Compare(ExprCompare),
     #[is(name = "call_expr")]
     Call(ExprCall),
-    #[is(name = "formatted_value_expr")]
-    FormattedValue(ExprFormattedValue),
     #[is(name = "f_string_expr")]
     FString(ExprFString),
     #[is(name = "constant_expr")]
@@ -811,18 +809,19 @@ impl From<ExprCall> for Expr {
 
 /// See also [FormattedValue](https://docs.python.org/3/library/ast.html#ast.FormattedValue)
 #[derive(Clone, Debug, PartialEq)]
-pub struct ExprFormattedValue {
+pub struct FormattedValue {
     pub range: TextRange,
-    pub value: Box<Expr>,
+    pub expression: Box<Expr>,
     pub debug_text: Option<DebugText>,
     pub conversion: ConversionFlag,
+    // TODO: is this Option<Box<FStringPart>>?
     pub format_spec: Option<Box<Expr>>,
 }
 
-impl From<ExprFormattedValue> for Expr {
-    fn from(payload: ExprFormattedValue) -> Self {
-        Expr::FormattedValue(payload)
-    }
+#[derive(Clone, Debug, PartialEq)]
+pub struct StringTodoName {
+    pub range: TextRange,
+    pub value: String,
 }
 
 /// Transforms a value prior to formatting it.
@@ -864,15 +863,21 @@ pub struct DebugText {
 #[derive(Clone, Debug, PartialEq)]
 pub struct ExprFString {
     pub range: TextRange,
-    pub values: Vec<Expr>,
     /// Whether the f-string contains multiple string tokens that were implicitly concatenated.
     pub implicit_concatenated: bool,
+    pub parts: Vec<FStringPart>,
 }
 
 impl From<ExprFString> for Expr {
     fn from(payload: ExprFString) -> Self {
         Expr::FString(payload)
     }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum FStringPart {
+    String(StringTodoName),
+    FormattedValue(FormattedValue),
 }
 
 /// See also [Constant](https://docs.python.org/3/library/ast.html#ast.Constant)
@@ -2837,11 +2842,6 @@ impl Ranged for crate::nodes::ExprCall {
         self.range
     }
 }
-impl Ranged for crate::nodes::ExprFormattedValue {
-    fn range(&self) -> TextRange {
-        self.range
-    }
-}
 impl Ranged for crate::nodes::ExprFString {
     fn range(&self) -> TextRange {
         self.range
@@ -2912,7 +2912,6 @@ impl Ranged for crate::Expr {
             Self::YieldFrom(node) => node.range(),
             Self::Compare(node) => node.range(),
             Self::Call(node) => node.range(),
-            Self::FormattedValue(node) => node.range(),
             Self::FString(node) => node.range(),
             Self::Constant(node) => node.range(),
             Self::Attribute(node) => node.range(),
@@ -3099,4 +3098,25 @@ mod size_assertions {
     assert_eq_size!(Constant, [u8; 40]);
     assert_eq_size!(Pattern, [u8; 96]);
     assert_eq_size!(Mod, [u8; 32]);
+}
+
+impl Ranged for crate::nodes::FormattedValue {
+    fn range(&self) -> TextRange {
+        self.range
+    }
+}
+
+impl Ranged for crate::nodes::FStringPart {
+    fn range(&self) -> TextRange {
+        match self {
+            FStringPart::String(node) => node.range(),
+            FStringPart::FormattedValue(node) => node.range(),
+        }
+    }
+}
+
+impl Ranged for crate::nodes::StringTodoName {
+    fn range(&self) -> TextRange {
+        self.range
+    }
 }

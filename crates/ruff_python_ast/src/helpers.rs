@@ -9,8 +9,8 @@ use ruff_text_size::TextRange;
 use crate::call_path::CallPath;
 use crate::statement_visitor::{walk_body, walk_stmt, StatementVisitor};
 use crate::{
-    self as ast, Arguments, Constant, ExceptHandler, Expr, MatchCase, Pattern, Ranged, Stmt,
-    TypeParam,
+    self as ast, Arguments, Constant, ExceptHandler, Expr, FStringPart, MatchCase, Pattern, Ranged,
+    Stmt, TypeParam,
 };
 
 /// Return `true` if the `Stmt` is a compound statement (as opposed to a simple statement).
@@ -122,9 +122,11 @@ where
         return true;
     }
     match expr {
-        Expr::BoolOp(ast::ExprBoolOp { values, .. })
-        | Expr::FString(ast::ExprFString { values, .. }) => {
+        Expr::BoolOp(ast::ExprBoolOp { values, .. }) => {
             values.iter().any(|expr| any_over_expr(expr, func))
+        }
+        Expr::FString(ast::ExprFString { parts, .. }) => {
+            parts.iter().any(|part| any_over_fstring_part(part, func))
         }
         Expr::NamedExpr(ast::ExprNamedExpr {
             target,
@@ -216,14 +218,6 @@ where
                     .iter()
                     .any(|keyword| any_over_expr(&keyword.value, func))
         }
-        Expr::FormattedValue(ast::ExprFormattedValue {
-            value, format_spec, ..
-        }) => {
-            any_over_expr(value, func)
-                || format_spec
-                    .as_ref()
-                    .is_some_and(|value| any_over_expr(value, func))
-        }
         Expr::Subscript(ast::ExprSubscript { value, slice, .. }) => {
             any_over_expr(value, func) || any_over_expr(slice, func)
         }
@@ -297,6 +291,25 @@ where
         Pattern::MatchOr(ast::PatternMatchOr { patterns, range: _ }) => patterns
             .iter()
             .any(|pattern| any_over_pattern(pattern, func)),
+    }
+}
+
+pub fn any_over_fstring_part<F>(part: &FStringPart, func: &F) -> bool
+where
+    F: Fn(&Expr) -> bool,
+{
+    match part {
+        FStringPart::String(_) => false,
+        FStringPart::FormattedValue(ast::FormattedValue {
+            expression,
+            format_spec,
+            ..
+        }) => {
+            any_over_expr(expression, func)
+                || format_spec
+                    .as_ref()
+                    .map_or(false, |format_spec| any_over_expr(format_spec, func))
+        }
     }
 }
 
@@ -1082,19 +1095,14 @@ impl Truthiness {
                 Constant::Complex { real, imag } => Some(*real != 0.0 || *imag != 0.0),
                 Constant::Ellipsis => Some(true),
             },
-            Expr::FString(ast::ExprFString { values, .. }) => {
-                if values.is_empty() {
+            Expr::FString(ast::ExprFString { parts, .. }) => {
+                if parts.is_empty() {
                     Some(false)
-                } else if values.iter().any(|value| {
-                    if let Expr::Constant(ast::ExprConstant {
-                        value: Constant::Str(ast::StringConstant { value, .. }),
-                        ..
-                    }) = &value
-                    {
+                } else if parts.iter().any(|part| match part {
+                    ast::FStringPart::String(ast::StringTodoName { value, .. }) => {
                         !value.is_empty()
-                    } else {
-                        false
                     }
+                    ast::FStringPart::FormattedValue(_) => true,
                 }) {
                     Some(true)
                 } else {
