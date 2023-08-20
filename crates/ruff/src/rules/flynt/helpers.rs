@@ -14,7 +14,7 @@ fn to_formatted_value_expr(inner: &Expr) -> ast::FStringPart {
 
 /// Convert a string to a constant string expression.
 pub(super) fn to_constant_string(s: &str) -> ast::FStringPart {
-    ast::FStringPart::String(ast::StringTodoName {
+    ast::FStringPart::Literal(ast::PartialString {
         value: s.to_owned(),
         range: TextRange::default(),
     })
@@ -56,7 +56,7 @@ pub(super) fn to_fstring_part(expr: &Expr) -> Option<ast::FStringPart> {
             value: Constant::Str(value),
             range,
             ..
-        }) => Some(ast::FStringPart::String(ast::StringTodoName {
+        }) => Some(ast::FStringPart::Literal(ast::PartialString {
             value: value.to_string(),
             range: *range,
         })),

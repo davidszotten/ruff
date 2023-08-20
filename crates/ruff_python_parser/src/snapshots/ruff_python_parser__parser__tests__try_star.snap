@@ -203,8 +203,8 @@ expression: parse_ast
                                                             range: 133..179,
                                                             implicit_concatenated: false,
                                                             parts: [
-                                                                String(
-                                                                    StringTodoName {
+                                                                Literal(
+                                                                    PartialString {
                                                                         range: 135..142,
                                                                         value: "caught ",
                                                                     },
@@ -242,8 +242,8 @@ expression: parse_ast
                                                                         format_spec: [],
                                                                     },
                                                                 ),
-                                                                String(
-                                                                    StringTodoName {
+                                                                Literal(
+                                                                    PartialString {
                                                                         range: 151..164,
                                                                         value: " with nested ",
                                                                     },
@@ -326,8 +326,8 @@ expression: parse_ast
                                                             range: 213..259,
                                                             implicit_concatenated: false,
                                                             parts: [
-                                                                String(
-                                                                    StringTodoName {
+                                                                Literal(
+                                                                    PartialString {
                                                                         range: 215..222,
                                                                         value: "caught ",
                                                                     },
@@ -365,8 +365,8 @@ expression: parse_ast
                                                                         format_spec: [],
                                                                     },
                                                                 ),
-                                                                String(
-                                                                    StringTodoName {
+                                                                Literal(
+                                                                    PartialString {
                                                                         range: 231..244,
                                                                         value: " with nested ",
                                                                     },

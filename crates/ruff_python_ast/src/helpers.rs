@@ -299,7 +299,7 @@ where
     F: Fn(&Expr) -> bool,
 {
     match part {
-        FStringPart::String(_) => false,
+        FStringPart::Literal(_) => false,
         FStringPart::FormattedValue(ast::FormattedValue {
             expression,
             format_spec,
@@ -1099,7 +1099,7 @@ impl Truthiness {
                 if parts.is_empty() {
                     Some(false)
                 } else if parts.iter().any(|part| match part {
-                    ast::FStringPart::String(ast::StringTodoName { value, .. }) => {
+                    ast::FStringPart::Literal(ast::PartialString { value, .. }) => {
                         !value.is_empty()
                     }
                     ast::FStringPart::FormattedValue(_) => true,

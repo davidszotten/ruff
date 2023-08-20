@@ -519,7 +519,7 @@ impl<'a> From<&'a ast::ExceptHandler> for ComparableExceptHandler<'a> {
 
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub enum ComparableFStringPart<'a> {
-    String(&'a str),
+    Literal(&'a str),
     FormattedValue(FormattedValue<'a>),
 }
 
@@ -534,7 +534,7 @@ pub struct FormattedValue<'a> {
 impl<'a> From<&'a ast::FStringPart> for ComparableFStringPart<'a> {
     fn from(fstring_part: &'a ast::FStringPart) -> Self {
         match fstring_part {
-            ast::FStringPart::String(ast::StringTodoName { value, .. }) => Self::String(value),
+            ast::FStringPart::Literal(ast::PartialString { value, .. }) => Self::Literal(value),
             ast::FStringPart::FormattedValue(formatted_value) => {
                 Self::FormattedValue(FormattedValue {
                     expression: (&formatted_value.expression).into(),

@@ -818,7 +818,7 @@ pub struct FormattedValue {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct StringTodoName {
+pub struct PartialString {
     pub range: TextRange,
     pub value: String,
 }
@@ -875,7 +875,7 @@ impl From<ExprFString> for Expr {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum FStringPart {
-    String(StringTodoName),
+    Literal(PartialString),
     FormattedValue(FormattedValue),
 }
 
@@ -3108,13 +3108,13 @@ impl Ranged for crate::nodes::FormattedValue {
 impl Ranged for crate::nodes::FStringPart {
     fn range(&self) -> TextRange {
         match self {
-            FStringPart::String(node) => node.range(),
+            FStringPart::Literal(node) => node.range(),
             FStringPart::FormattedValue(node) => node.range(),
         }
     }
 }
 
-impl Ranged for crate::nodes::StringTodoName {
+impl Ranged for crate::nodes::PartialString {
     fn range(&self) -> TextRange {
         self.range
     }
