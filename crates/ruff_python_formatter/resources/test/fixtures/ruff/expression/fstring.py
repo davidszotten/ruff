@@ -33,3 +33,29 @@ result_f = (
     # comment
     ''
 )
+
+
+f"{ chr(65)  =   }"
+f"{ chr(65)  =   !s}"
+f"{ chr(65)  =   !r}"
+f"{ chr(65)  =   :#x}"
+f"{a=!r:0.05f}"
+
+# should add some nice spaces
+f"{1-2+3}"
+
+
+# don't switch quotes inside a formatted value
+f"\"{f'{nested} inner'}\" outer"
+
+# need a space to avoid escaping the curly
+f"{ {1}}"
+
+# handle string continuations
+(
+    ''
+    f'"{1}'
+)
+
+# it's ok to change triple quotes with even with qoutes inside f-strings
+f''' {""} '''
