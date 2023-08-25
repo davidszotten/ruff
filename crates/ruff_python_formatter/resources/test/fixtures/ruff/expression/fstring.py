@@ -59,3 +59,6 @@ f"{ {1}}"
 
 # it's ok to change triple quotes with even with qoutes inside f-strings
 f''' {""} '''
+
+# quote handling for raw f-strings
+rf"Not-so-tricky \"quote"
