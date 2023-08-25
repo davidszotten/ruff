@@ -309,7 +309,6 @@ impl<'a> FormatStringPart<'a> {
         let is_raw_string = prefix.is_raw_string();
 
         let quoting = match inside_formatted_value {
-            // TODO: maybe we need this quote style?
             InsideFormattedValue::Inside(_) => Quoting::Preserve,
             InsideFormattedValue::Outside => quoting,
         };
