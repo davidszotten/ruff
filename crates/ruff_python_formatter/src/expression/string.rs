@@ -33,11 +33,22 @@ impl<'a> AnyString<'a> {
     fn quoting(&self, locator: &Locator) -> Quoting {
         match self {
             Self::Constant(_) => Quoting::CanChange,
-            Self::FString(f_str) => {
-                if f_str.parts.iter().any(|value| match value {
+            Self::FString(ExprFString { parts, range, .. }) => {
+                let string_content = locator.slice(*range);
+                let prefix = StringPrefix::parse(string_content);
+                let after_prefix = &string_content[usize::from(prefix.text_len())..];
+
+                let quotes = StringQuotes::parse(after_prefix)
+                    .expect("Didn't find string quotes after prefix");
+
+                if parts.iter().any(|value| match value {
                     ast::FStringPart::FormattedValue(ast::FormattedValue { range, .. }) => {
                         let string_content = locator.slice(*range);
-                        string_content.contains(['"', '\''])
+                        if quotes.triple {
+                            string_content.contains(r#"""""#) || string_content.contains("'''")
+                        } else {
+                            string_content.contains(['"', '\''])
+                        }
                     }
                     ast::FStringPart::Literal(_) => false,
                 }) {
