@@ -28,12 +28,17 @@ impl FormatNodeRule<FormattedValue> for FormatFormattedValue {
 
         // if expression starts with a `{`, we need a space to avoid turning into a literal curly
         // with `{{`
-        let extra_space = match **expression {
-            Expr::Dict(_) | Expr::DictComp(_) | Expr::Set(_) | Expr::SetComp(_) => Some(space()),
-            _ => None,
+        let extra_space = if debug_text.is_some() {
+            // debug_text preserves spaces so no need for any extra
+            None
+        } else {
+            match **expression {
+                Expr::Dict(_) | Expr::DictComp(_) | Expr::Set(_) | Expr::SetComp(_) => {
+                    Some(space())
+                }
+                _ => None,
+            }
         };
-
-        // TODO: do we want to subtract this space from the debug_text (can both happen at once?)
 
         let formatted_format_spec = format_with(|f| f.join().entries(format_spec.iter()).finish());
 

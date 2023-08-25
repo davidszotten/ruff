@@ -41,6 +41,9 @@ f"{ chr(65)  =   !r}"
 f"{ chr(65)  =   :#x}"
 f"{a=!r:0.05f}"
 
+f"{ {}  =   }"
+f"{ {}=}"
+
 # should add some nice spaces
 f"{1-2+3}"
 
@@ -50,6 +53,9 @@ f"\"{f'{nested} inner'}\" outer"
 
 # need a space to avoid escaping the curly
 f"{ {1}}"
+
+# extra spaces don't interfere with debug_text
+f"{ {1}=}"
 
 # handle string continuations
 (
