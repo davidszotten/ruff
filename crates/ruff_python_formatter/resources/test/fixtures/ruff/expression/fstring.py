@@ -3,7 +3,7 @@
     f'{two}'
 )
 
-
+# quote handling for raw f-strings
 rf"Not-so-tricky \"quote"
 
 # Regression test for fstrings dropping comments
@@ -60,5 +60,7 @@ f"{ {1}}"
 # it's ok to change triple quotes with even with qoutes inside f-strings
 f''' {""} '''
 
-# quote handling for raw f-strings
-rf"Not-so-tricky \"quote"
+
+# various nested quotes
+f' {f" {1}"} '
+f" {f' {1}'} "
