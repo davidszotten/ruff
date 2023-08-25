@@ -346,20 +346,21 @@ impl Format<PyFormatContext<'_>> for FormatStringPart<'_> {
         write!(f, [self.prefix, self.preferred_quotes])?;
         if let AnyString::FString(f_string) = self.string {
             {
+                let locator = f.context().locator();
                 let mut f = WithInsideFormattedValue::new(f, self.preferred_quotes);
 
                 let mut joiner = f.join();
                 for part in &f_string.parts {
                     if let Some(intersection) = part.range().intersect(self.range) {
                         match part {
-                            ast::FStringPart::Literal(ast::PartialString { value, .. }) => {
-                                joiner.entry(&ast::FStringPart::Literal(ast::PartialString {
-                                    value: value.to_string(),
-                                    range: intersection,
-                                }));
+                            ast::FStringPart::Literal(_) => {
+                                let string_content = locator.slice(intersection);
+                                let (normalized, _contains_newlines) =
+                                    normalize_string(string_content, self.preferred_quotes, false);
+                                joiner.entry(&dynamic_text(&normalized, None));
                             }
-                            ast::FStringPart::FormattedValue(_) => {
-                                joiner.entry(&part);
+                            ast::FStringPart::FormattedValue(formatted_value) => {
+                                joiner.entry(&formatted_value.format());
                             }
                         }
                     }
