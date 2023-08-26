@@ -320,7 +320,13 @@ impl<'a> FormatStringPart<'a> {
         let is_raw_string = prefix.is_raw_string();
 
         let quoting = match inside_formatted_value {
-            InsideFormattedValue::Inside(_) => Quoting::Preserve,
+            InsideFormattedValue::Inside(fstring_quotes) => {
+                if fstring_quotes.triple && !quotes.triple {
+                    quoting
+                } else {
+                    Quoting::Preserve
+                }
+            }
             InsideFormattedValue::Outside => quoting,
         };
 
