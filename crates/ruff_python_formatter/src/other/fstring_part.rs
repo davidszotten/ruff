@@ -1,4 +1,4 @@
-use crate::context::InsideFormattedValue;
+use crate::context::{InsideFormattedValue, SurroundingFStringQuotes};
 use crate::expression::string::normalize_string;
 use crate::prelude::*;
 use crate::AsFormat;
@@ -10,7 +10,9 @@ impl Format<PyFormatContext<'_>> for FStringPart {
         match self {
             FStringPart::Literal(PartialString { value: _, range }) => {
                 let preferred_quotes = match f.context().inside_formatted_value() {
-                    InsideFormattedValue::Inside(quotes) => quotes,
+                    InsideFormattedValue::Inside(SurroundingFStringQuotes { closest, .. }) => {
+                        closest
+                    }
                     InsideFormattedValue::Outside => unreachable!(),
                 };
 

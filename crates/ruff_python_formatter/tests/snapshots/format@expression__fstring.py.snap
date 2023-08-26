@@ -72,16 +72,19 @@ f"{ {1}=}"
 # it's ok to change triple quotes with even with qoutes inside f-strings
 f''' {""} '''
 
-
-# various nested quotes
-f" {f' {1}'} "
-f' {f" {1}"} '
-f""" {f" {1}"} """
+# it's ok to change the inner single to a double quote
 f""" {f' {1}'} """
-f""" {f''' {1}'''} """
-f''' {f" {1}"} '''
 f''' {f' {1}'} '''
+
+# TODO: would we want to swap the quotes to use double on the outside?
+f' {f" {1}"} '
 f''' {f""" {1}"""} '''
+
+# various nested quotes to leave unchanged
+f" {f' {1}'} "
+f""" {f" {1}"} """
+f""" {f''' {1}'''} """
+f"{f'''{'nested'} inner'''} outer"
 ```
 
 ## Output
@@ -149,16 +152,19 @@ f"{ {1}=}"
 # it's ok to change triple quotes with even with qoutes inside f-strings
 f""" {""} """
 
+# it's ok to change the inner single to a double quote
+f""" {f" {1}"} """
+f""" {f" {1}"} """
 
-# various nested quotes
-f" {f' {1}'} "
+# TODO: would we want to swap the quotes to use double on the outside?
 f' {f" {1}"} '
-f""" {f" {1}"} """
-f""" {f' {1}'} """
-f""" {f''' {1}'''} """
-f""" {f" {1}"} """
-f""" {f' {1}'} """
 f''' {f""" {1}"""} '''
+
+# various nested quotes to leave unchanged
+f" {f' {1}'} "
+f""" {f" {1}"} """
+f""" {f''' {1}'''} """
+f"{f'''{'nested'} inner'''} outer"
 ```
 
 

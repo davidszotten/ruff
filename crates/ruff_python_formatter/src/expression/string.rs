@@ -11,7 +11,7 @@ use ruff_source_file::Locator;
 use ruff_text_size::{TextLen, TextRange, TextSize};
 
 use crate::comments::{leading_comments, trailing_comments};
-use crate::context::{InsideFormattedValue, WithInsideFormattedValue};
+use crate::context::{InsideFormattedValue, SurroundingFStringQuotes, WithInsideFormattedValue};
 use crate::expression::parentheses::{
     in_parentheses_only_group, in_parentheses_only_soft_line_break_or_space,
 };
@@ -320,8 +320,8 @@ impl<'a> FormatStringPart<'a> {
         let is_raw_string = prefix.is_raw_string();
 
         let quoting = match inside_formatted_value {
-            InsideFormattedValue::Inside(fstring_quotes) => {
-                if fstring_quotes.triple && !quotes.triple {
+            InsideFormattedValue::Inside(SurroundingFStringQuotes { all_triple, .. }) => {
+                if all_triple && !quotes.triple {
                     quoting
                 } else {
                     Quoting::Preserve
@@ -639,7 +639,7 @@ impl StringQuotes {
         Some(Self { triple, style })
     }
 
-    pub(super) const fn is_triple(self) -> bool {
+    pub(crate) const fn is_triple(self) -> bool {
         self.triple
     }
 

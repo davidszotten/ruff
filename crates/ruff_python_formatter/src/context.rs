@@ -6,12 +6,18 @@ use ruff_source_file::Locator;
 use std::fmt::{Debug, Formatter};
 use std::ops::{Deref, DerefMut};
 
+#[derive(Clone, Copy)]
+pub(crate) struct SurroundingFStringQuotes {
+    pub(crate) closest: StringQuotes,
+    pub(crate) all_triple: bool,
+}
+
 #[derive(Clone, Copy, Default)]
 // TODO: names
 pub(crate) enum InsideFormattedValue {
     #[default]
     Outside,
-    Inside(StringQuotes),
+    Inside(SurroundingFStringQuotes),
 }
 
 #[derive(Clone)]
@@ -189,7 +195,19 @@ where
         let context = buffer.state_mut().context_mut();
         let saved_value = context.inside_formatted_value();
 
-        context.set_inside_formatted_value(InsideFormattedValue::Inside(quotes));
+        let all_triple = match saved_value {
+            InsideFormattedValue::Outside => quotes.is_triple(),
+            InsideFormattedValue::Inside(SurroundingFStringQuotes { all_triple, .. }) => {
+                all_triple && quotes.is_triple()
+            }
+        };
+
+        let new = SurroundingFStringQuotes {
+            closest: quotes,
+            all_triple,
+        };
+
+        context.set_inside_formatted_value(InsideFormattedValue::Inside(new));
 
         Self {
             buffer,
