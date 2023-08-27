@@ -1,9 +1,24 @@
 use crate::comments::Comments;
+use crate::expression::string::StringQuotes;
 use crate::PyFormatOptions;
 use ruff_formatter::{Buffer, FormatContext, GroupId, SourceCode};
 use ruff_source_file::Locator;
 use std::fmt::{Debug, Formatter};
 use std::ops::{Deref, DerefMut};
+
+#[derive(Clone, Copy)]
+pub(crate) struct SurroundingFStringQuotes {
+    pub(crate) closest: StringQuotes,
+    pub(crate) all_triple: bool,
+}
+
+#[derive(Clone, Copy, Default)]
+// TODO: names
+pub(crate) enum InsideFormattedValue {
+    #[default]
+    Outside,
+    Inside(SurroundingFStringQuotes),
+}
 
 #[derive(Clone)]
 pub struct PyFormatContext<'a> {
@@ -11,6 +26,7 @@ pub struct PyFormatContext<'a> {
     contents: &'a str,
     comments: Comments<'a>,
     node_level: NodeLevel,
+    inside_formatted_value: InsideFormattedValue,
 }
 
 impl<'a> PyFormatContext<'a> {
@@ -20,6 +36,7 @@ impl<'a> PyFormatContext<'a> {
             contents,
             comments,
             node_level: NodeLevel::TopLevel,
+            inside_formatted_value: InsideFormattedValue::default(),
         }
     }
 
@@ -38,6 +55,14 @@ impl<'a> PyFormatContext<'a> {
 
     pub(crate) fn node_level(&self) -> NodeLevel {
         self.node_level
+    }
+
+    pub(crate) fn set_inside_formatted_value(&mut self, inside: InsideFormattedValue) {
+        self.inside_formatted_value = inside;
+    }
+
+    pub(crate) fn inside_formatted_value(&self) -> InsideFormattedValue {
+        self.inside_formatted_value
     }
 
     pub(crate) fn comments(&self) -> &Comments<'a> {
@@ -151,5 +176,74 @@ where
             .state_mut()
             .context_mut()
             .set_node_level(self.saved_level);
+    }
+}
+
+pub(crate) struct WithInsideFormattedValue<'ast, 'buf, B>
+where
+    B: Buffer<Context = PyFormatContext<'ast>>,
+{
+    buffer: &'buf mut B,
+    saved_value: InsideFormattedValue,
+}
+
+impl<'ast, 'buf, B> WithInsideFormattedValue<'ast, 'buf, B>
+where
+    B: Buffer<Context = PyFormatContext<'ast>>,
+{
+    pub(crate) fn new(buffer: &'buf mut B, quotes: StringQuotes) -> Self {
+        let context = buffer.state_mut().context_mut();
+        let saved_value = context.inside_formatted_value();
+
+        let all_triple = match saved_value {
+            InsideFormattedValue::Outside => quotes.is_triple(),
+            InsideFormattedValue::Inside(SurroundingFStringQuotes { all_triple, .. }) => {
+                all_triple && quotes.is_triple()
+            }
+        };
+
+        let new = SurroundingFStringQuotes {
+            closest: quotes,
+            all_triple,
+        };
+
+        context.set_inside_formatted_value(InsideFormattedValue::Inside(new));
+
+        Self {
+            buffer,
+            saved_value,
+        }
+    }
+}
+
+impl<'ast, 'buf, B> Deref for WithInsideFormattedValue<'ast, 'buf, B>
+where
+    B: Buffer<Context = PyFormatContext<'ast>>,
+{
+    type Target = B;
+
+    fn deref(&self) -> &Self::Target {
+        self.buffer
+    }
+}
+
+impl<'ast, 'buf, B> DerefMut for WithInsideFormattedValue<'ast, 'buf, B>
+where
+    B: Buffer<Context = PyFormatContext<'ast>>,
+{
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.buffer
+    }
+}
+
+impl<'ast, B> Drop for WithInsideFormattedValue<'ast, '_, B>
+where
+    B: Buffer<Context = PyFormatContext<'ast>>,
+{
+    fn drop(&mut self) {
+        self.buffer
+            .state_mut()
+            .context_mut()
+            .set_inside_formatted_value(self.saved_value);
     }
 }

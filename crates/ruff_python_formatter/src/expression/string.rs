@@ -2,7 +2,9 @@ use std::borrow::Cow;
 
 use bitflags::bitflags;
 
-use ruff_formatter::{format_args, write, FormatError, FormatOptions, TabWidth};
+use ruff_formatter::{
+    format_args, write, FormatError, FormatOptions, RemoveSoftLinesBuffer, TabWidth,
+};
 use ruff_python_ast::node::AnyNodeRef;
 use ruff_python_ast::{self as ast, ExprConstant, ExprFString, Ranged};
 use ruff_python_parser::lexer::{lex_starts_at, LexicalError, LexicalErrorType};
@@ -11,6 +13,7 @@ use ruff_source_file::Locator;
 use ruff_text_size::{TextLen, TextRange, TextSize};
 
 use crate::comments::{leading_comments, trailing_comments};
+use crate::context::{InsideFormattedValue, SurroundingFStringQuotes, WithInsideFormattedValue};
 use crate::expression::parentheses::{
     in_parentheses_only_group, in_parentheses_only_soft_line_break_or_space,
 };
@@ -32,11 +35,22 @@ impl<'a> AnyString<'a> {
     fn quoting(&self, locator: &Locator) -> Quoting {
         match self {
             Self::Constant(_) => Quoting::CanChange,
-            Self::FString(f_str) => {
-                if f_str.parts.iter().any(|value| match value {
+            Self::FString(ExprFString { parts, range, .. }) => {
+                let string_content = locator.slice(*range);
+                let prefix = StringPrefix::parse(string_content);
+                let after_prefix = &string_content[usize::from(prefix.text_len())..];
+
+                let quotes = StringQuotes::parse(after_prefix)
+                    .expect("Didn't find string quotes after prefix");
+
+                if parts.iter().any(|value| match value {
                     ast::FStringPart::FormattedValue(ast::FormattedValue { range, .. }) => {
                         let string_content = locator.slice(*range);
-                        string_content.contains(['"', '\''])
+                        if quotes.triple {
+                            string_content.contains(r#"""""#) || string_content.contains("'''")
+                        } else {
+                            string_content.contains(['"', '\''])
+                        }
                     }
                     ast::FStringPart::Literal(_) => false,
                 }) {
@@ -120,6 +134,8 @@ impl<'a> Format<PyFormatContext<'_>> for FormatString<'a> {
                         self.string.quoting(&f.context().locator()),
                         &f.context().locator(),
                         f.options().quote_style(),
+                        f.context().inside_formatted_value(),
+                        self.string,
                     )
                     .fmt(f)
                 }
@@ -131,6 +147,8 @@ impl<'a> Format<PyFormatContext<'_>> for FormatString<'a> {
                     Quoting::CanChange,
                     &f.context().locator(),
                     f.options().quote_style(),
+                    f.context().inside_formatted_value(),
+                    self.string,
                 );
                 format_docstring(&string_part, f)
             }
@@ -159,6 +177,7 @@ impl Format<PyFormatContext<'_>> for FormatStringContinuation<'_> {
         let comments = f.context().comments().clone();
         let locator = f.context().locator();
         let quote_style = f.options().quote_style();
+        let inside_formatted_value = f.context().inside_formatted_value();
         let mut dangling_comments = comments.dangling(self.string);
 
         let string_range = self.string.range();
@@ -240,6 +259,8 @@ impl Format<PyFormatContext<'_>> for FormatStringContinuation<'_> {
                             self.string.quoting(&locator),
                             &locator,
                             quote_style,
+                            inside_formatted_value,
+                            self.string,
                         ),
                         trailing_comments(trailing_part_comments)
                     ]);
@@ -261,21 +282,29 @@ impl Format<PyFormatContext<'_>> for FormatStringContinuation<'_> {
     }
 }
 
-struct FormatStringPart {
+struct FormatStringPart<'a> {
     prefix: StringPrefix,
     preferred_quotes: StringQuotes,
     range: TextRange,
     is_raw_string: bool,
+    string: &'a AnyString<'a>,
 }
 
-impl Ranged for FormatStringPart {
+impl Ranged for FormatStringPart<'_> {
     fn range(&self) -> TextRange {
         self.range
     }
 }
 
-impl FormatStringPart {
-    fn new(range: TextRange, quoting: Quoting, locator: &Locator, quote_style: QuoteStyle) -> Self {
+impl<'a> FormatStringPart<'a> {
+    fn new(
+        range: TextRange,
+        quoting: Quoting,
+        locator: &Locator,
+        quote_style: QuoteStyle,
+        inside_formatted_value: InsideFormattedValue,
+        string: &'a AnyString<'a>,
+    ) -> Self {
         let string_content = locator.slice(range);
 
         let prefix = StringPrefix::parse(string_content);
@@ -291,6 +320,18 @@ impl FormatStringPart {
 
         let raw_content = &string_content[relative_raw_content_range];
         let is_raw_string = prefix.is_raw_string();
+
+        let quoting = match inside_formatted_value {
+            InsideFormattedValue::Inside(SurroundingFStringQuotes { all_triple, .. }) => {
+                if all_triple && !quotes.triple {
+                    quoting
+                } else {
+                    Quoting::Preserve
+                }
+            }
+            InsideFormattedValue::Outside => quoting,
+        };
+
         let preferred_quotes = match quoting {
             Quoting::Preserve => quotes,
             Quoting::CanChange => {
@@ -307,11 +348,12 @@ impl FormatStringPart {
             range: raw_content_range,
             preferred_quotes,
             is_raw_string,
+            string,
         }
     }
 }
 
-impl Format<PyFormatContext<'_>> for FormatStringPart {
+impl Format<PyFormatContext<'_>> for FormatStringPart<'_> {
     fn fmt(&self, f: &mut PyFormatter) -> FormatResult<()> {
         let (normalized, contains_newlines) = normalize_string(
             f.context().locator().slice(self.range),
@@ -320,12 +362,42 @@ impl Format<PyFormatContext<'_>> for FormatStringPart {
         );
 
         write!(f, [self.prefix, self.preferred_quotes])?;
-        match normalized {
-            Cow::Borrowed(_) => {
-                source_text_slice(self.range(), contains_newlines).fmt(f)?;
-            }
-            Cow::Owned(normalized) => {
-                dynamic_text(&normalized, Some(self.start())).fmt(f)?;
+        if let AnyString::FString(f_string) = self.string {
+            let joined = format_with(|f: &mut PyFormatter| {
+                let locator = f.context().locator();
+                let mut f = WithInsideFormattedValue::new(f, self.preferred_quotes);
+                let mut joiner = f.join();
+                for part in &f_string.parts {
+                    if let Some(intersection) = part.range().intersect(self.range) {
+                        match part {
+                            ast::FStringPart::Literal(_) => {
+                                let string_content = locator.slice(intersection);
+                                let (normalized, _contains_newlines) =
+                                    normalize_string(string_content, self.preferred_quotes, false);
+                                joiner.entry(&dynamic_text(&normalized, None));
+                            }
+                            ast::FStringPart::FormattedValue(formatted_value) => {
+                                joiner.entry(&formatted_value.format());
+                            }
+                        }
+                    }
+                }
+                joiner.finish()
+            });
+            match f.context().inside_formatted_value() {
+                InsideFormattedValue::Outside => {
+                    write!(&mut RemoveSoftLinesBuffer::new(f), [joined])?;
+                }
+                InsideFormattedValue::Inside(_) => joined.fmt(f)?,
+            };
+        } else {
+            match normalized {
+                Cow::Borrowed(_) => {
+                    source_text_slice(self.range(), contains_newlines).fmt(f)?;
+                }
+                Cow::Owned(normalized) => {
+                    dynamic_text(&normalized, Some(self.start())).fmt(f)?;
+                }
             }
         }
         self.preferred_quotes.fmt(f)
@@ -556,7 +628,7 @@ fn preferred_quotes(
 }
 
 #[derive(Copy, Clone, Debug)]
-pub(super) struct StringQuotes {
+pub(crate) struct StringQuotes {
     triple: bool,
     style: QuoteStyle,
 }
@@ -573,7 +645,7 @@ impl StringQuotes {
         Some(Self { triple, style })
     }
 
-    pub(super) const fn is_triple(self) -> bool {
+    pub(crate) const fn is_triple(self) -> bool {
         self.triple
     }
 
@@ -603,7 +675,7 @@ impl Format<PyFormatContext<'_>> for StringQuotes {
 /// with the provided `style`.
 ///
 /// Returns the normalized string and whether it contains new lines.
-fn normalize_string(
+pub(crate) fn normalize_string(
     input: &str,
     quotes: StringQuotes,
     is_raw: bool,

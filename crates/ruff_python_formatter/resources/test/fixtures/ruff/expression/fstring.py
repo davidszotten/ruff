@@ -3,7 +3,7 @@
     f'{two}'
 )
 
-
+# quote handling for raw f-strings
 rf"Not-so-tricky \"quote"
 
 # Regression test for fstrings dropping comments
@@ -32,4 +32,62 @@ result_f = (
     f'{1}'
     # comment
     ''
+)
+
+
+f"{ chr(65)  =   }"
+f"{ chr(65)  =   !s}"
+f"{ chr(65)  =   !r}"
+f"{ chr(65)  =   :#x}"
+f"{a=!r:0.05f}"
+
+f"{ {}  =   }"
+f"{ {}=}"
+
+# should add some nice spaces
+f"{1-2+3}"
+
+
+# don't switch quotes inside a formatted value
+f"\"{f'{nested} inner'}\" outer"
+
+# need a space to avoid escaping the curly
+f"{ {1}}"
+
+# extra spaces don't interfere with debug_text
+f"{ {1}=}"
+
+# handle string continuations
+(
+    ''
+    f'"{1}'
+)
+
+# it's ok to change triple quotes with even with qoutes inside f-strings
+f''' {""} '''
+
+# it's ok to change the inner single to a double quote
+f""" {f' {1}'} """
+f''' {f' {1}'} '''
+
+# TODO: would we want to swap the quotes to use double on the outside?
+f' {f" {1}"} '
+f''' {f""" {1}"""} '''
+
+# various nested quotes to leave unchanged
+f" {f' {1}'} "
+f""" {f" {1}"} """
+f""" {f''' {1}'''} """
+f"{f'''{'nested'} inner'''} outer"
+
+
+# must not break lines inside non-triple quoted f-strings
+print(
+    f"Finished {f'{1}'} updating analytics counts through {fill_to_time} in {time.time() - start:.3f}s"
+
+)
+# TODO: ok to ot break lines inside triple quoted f-strings
+print(
+    f"Finished {f'{1}'} updating analytics counts through {fill_to_time} in {time.time() - start:.3f}s"
+
 )

@@ -6,6 +6,7 @@ pub(crate) mod decorator;
 pub(crate) mod elif_else_clause;
 pub(crate) mod except_handler_except_handler;
 pub(crate) mod formatted_value;
+pub(crate) mod fstring_part;
 pub(crate) mod identifier;
 pub(crate) mod keyword;
 pub(crate) mod match_case;
