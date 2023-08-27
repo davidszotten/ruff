@@ -85,6 +85,18 @@ f" {f' {1}'} "
 f""" {f" {1}"} """
 f""" {f''' {1}'''} """
 f"{f'''{'nested'} inner'''} outer"
+
+
+# must not break lines inside non-triple quoted f-strings
+print(
+    f"Finished {f'{1}'} updating analytics counts through {fill_to_time} in {time.time() - start:.3f}s"
+
+)
+# TODO: ok to ot break lines inside triple quoted f-strings
+print(
+    f"Finished {f'{1}'} updating analytics counts through {fill_to_time} in {time.time() - start:.3f}s"
+
+)
 ```
 
 ## Output
@@ -165,6 +177,16 @@ f" {f' {1}'} "
 f""" {f" {1}"} """
 f""" {f''' {1}'''} """
 f"{f'''{'nested'} inner'''} outer"
+
+
+# must not break lines inside non-triple quoted f-strings
+print(
+    f"Finished {f'{1}'} updating analytics counts through {fill_to_time} in {time.time() - start:.3f}s"
+)
+# TODO: ok to ot break lines inside triple quoted f-strings
+print(
+    f"Finished {f'{1}'} updating analytics counts through {fill_to_time} in {time.time() - start:.3f}s"
+)
 ```
 
 

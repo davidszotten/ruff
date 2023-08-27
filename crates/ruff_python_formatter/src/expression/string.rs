@@ -2,7 +2,9 @@ use std::borrow::Cow;
 
 use bitflags::bitflags;
 
-use ruff_formatter::{format_args, write, FormatError, FormatOptions, TabWidth};
+use ruff_formatter::{
+    format_args, write, FormatError, FormatOptions, RemoveSoftLinesBuffer, TabWidth,
+};
 use ruff_python_ast::node::AnyNodeRef;
 use ruff_python_ast::{self as ast, ExprConstant, ExprFString, Ranged};
 use ruff_python_parser::lexer::{lex_starts_at, LexicalError, LexicalErrorType};
@@ -361,10 +363,9 @@ impl Format<PyFormatContext<'_>> for FormatStringPart<'_> {
 
         write!(f, [self.prefix, self.preferred_quotes])?;
         if let AnyString::FString(f_string) = self.string {
-            {
+            let joined = format_with(|f: &mut PyFormatter| {
                 let locator = f.context().locator();
                 let mut f = WithInsideFormattedValue::new(f, self.preferred_quotes);
-
                 let mut joiner = f.join();
                 for part in &f_string.parts {
                     if let Some(intersection) = part.range().intersect(self.range) {
@@ -381,9 +382,14 @@ impl Format<PyFormatContext<'_>> for FormatStringPart<'_> {
                         }
                     }
                 }
-
-                joiner.finish()?.fmt(&mut f)?;
-            }
+                joiner.finish()
+            });
+            match f.context().inside_formatted_value() {
+                InsideFormattedValue::Outside => {
+                    write!(&mut RemoveSoftLinesBuffer::new(f), [joined])?;
+                }
+                InsideFormattedValue::Inside(_) => joined.fmt(f)?,
+            };
         } else {
             match normalized {
                 Cow::Borrowed(_) => {
